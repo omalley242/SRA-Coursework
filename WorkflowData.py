@@ -4,7 +4,7 @@ N = 31
 
 G = [[0 for i in range(0, M)] for j in range(0, N)]
 
-G[0][30] =1
+G[0][30]=1
 G[1][0]=1
 G[2][7]=1
 G[3][2]=1
@@ -55,3 +55,121 @@ d = [172, 82, 18, 61, 93, 71, 217, 295, 290,
      287, 253, 307, 279, 73, 355, 34,
      233, 77, 88, 122, 71, 181, 340, 141,
      209, 217, 256, 144, 307, 329, 269]
+
+
+# Graph Implementation
+class Graph():
+
+    forward_dict = {}
+    backward_dict = {}
+
+    # take an input adj matrix and convert to inner format
+    def __init__(self, adj_matrix: list[list[any]]):
+        for i in range(len(adj_matrix)):
+            self.add_node(i)
+            for j in range(len(adj_matrix[i])):
+                if adj_matrix[i][j] == 1:
+                    self.add_directed_edge(i, j)
+
+    # create data structure for forward and backwards tree traversal
+    def add_directed_edge(self, entry_node: any, exit_node: any):
+        result = self.forward_dict.get(entry_node)
+
+        if result == None:
+            self.forward_dict[entry_node] = set()
+        self.forward_dict[entry_node].add(exit_node)
+
+        result = self.backward_dict.get(exit_node)
+        if result == None:
+            self.backward_dict[exit_node] = set()
+        self.backward_dict[exit_node].add(entry_node)
+
+    def add_node(self, node):
+        result = self.forward_dict.get(node)
+        if result == None: 
+            self.forward_dict[node] = set()
+
+        result = self.backward_dict.get(node)
+        if result == None:      
+            self.backward_dict[node] = set()
+
+    # remove a node and returns the list of nodes that pointed to it
+    def remove_node(self, node):
+        result = self.forward_dict.get(node)
+        points_to = set()
+        pointed_by = set()
+
+        if result != None:
+            points_to = self.forward_dict[node]    
+            del self.forward_dict[node]
+
+        result = self.backward_dict.get(node)
+        if result != None:
+            pointed_by = self.backward_dict[node]    
+            del self.backward_dict[node]
+
+        for child in points_to:
+            self.backward_dict[child].remove(node)
+
+        for parent in pointed_by:
+            self.forward_dict[parent].remove(node)
+
+
+    # method for printing the tree
+    def __str__(self):
+        output_str = ""
+        for key, value in self.forward_dict.items():
+            output_str += ((str(key) + ":" + str(value)) + "\n")
+        return output_str.removesuffix("\n")
+
+
+class LowestCostLast(Graph):
+    
+    workflow_graph: Graph
+    due_dates: list[int]
+    processing_times: list[int]
+    total_processing_time: int = 0
+    leaf_nodes: set = set()
+    schedule: list = []
+
+    def __init__(self, adj_matrix, due_dates, processing_times):
+        self.workflow_graph = Graph(adj_matrix)
+        self.due_dates = due_dates
+        self.processing_times = processing_times
+        self.find_total_processing_time()
+        self.find_leaf_nodes()
+
+    def find_optimum(self):
+        while len(self.leaf_nodes) > 0:
+            self.iterate_schedule()
+            self.find_leaf_nodes()
+
+    def find_leaf_nodes(self):
+        self.leaf_nodes = set()
+        for node, edges in self.workflow_graph.forward_dict.items():
+            if len(edges) == 0:
+                self.leaf_nodes.add(node)
+
+    def find_total_processing_time(self):
+        total = 0
+        for time in self.processing_times:
+            total += time
+        self.total_processing_time = total
+
+    def iterate_schedule(self):
+        lowest_cost = None
+        lowest_cost_leaf = None
+
+        for leaf_node in self.leaf_nodes:
+            cost = self.compute_cost(leaf_node)
+            if lowest_cost == None or lowest_cost > cost:
+                lowest_cost = cost
+                lowest_cost_leaf = leaf_node
+
+        self.schedule.append(lowest_cost_leaf)
+        self.workflow_graph.remove_node(lowest_cost_leaf)
+        self.total_processing_time -= self.processing_times[lowest_cost_leaf]
+
+    def compute_cost(self, node) -> int:
+        due_date = self.due_dates[node]
+        return max(0, self.total_processing_time - due_date)
