@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import networkx as nx
+from WorkflowData import * #import graph library and data
 
 def generate_precedence_graph(precedences):
     graph = nx.DiGraph()
@@ -32,6 +33,8 @@ def compute_tardiness(processing_times, due_dates, schedule):
     )
     return tardiness
 
+# Im not 100% on how this works for the precedences should this not be using the graph?
+# Althougth this does seem to work for the supplied workflow
 def is_schedule_valid(schedule, precedences):
     job_indices = {job: i for i, job in enumerate(schedule)}
     for job1, job2 in precedences:
@@ -49,7 +52,7 @@ def tabu_search(processing_times, due_dates, precedences, K, L, tolerance):
         neighbors = []
         for i in range(len(curr_schedule) - 1):
             neighbor = curr_schedule[:]
-            
+
             neighbor[i], neighbor[i + 1] = neighbor[i + 1], neighbor[i]
             if is_schedule_valid(neighbor, precedences) and neighbor not in tabu_list:
                 neighbors.append(neighbor)
@@ -70,9 +73,7 @@ def tabu_search(processing_times, due_dates, precedences, K, L, tolerance):
     
     return best_schedule, best_tardiness
 
-processing_times = [3, 10, 2, 2, 5, 2, 14, 5, 6, 5, 5, 2, 3, 3, 5, 6, 6, 6, 2, 3, 2, 3, 14, 5, 18, 10, 2, 3, 6, 2, 10]
-due_dates = [172, 82, 18, 61, 93, 71, 217, 295, 290, 287, 253, 307, 279, 73, 355, 34,
-             233, 77, 88, 122, 71, 181, 340, 141, 209, 217, 256, 144, 307, 329, 269]
+# I think we should manage a method for converting the supplied adj matrix into this format
 precedences = [(1, 31), (2, 1), (3, 8), (4, 3), (5, 2), (6, 16), (7, 6), (8, 7), (9, 8), (10, 9),
     (11, 1), (12, 5), (13, 12), (14, 13), (17, 15), (15, 11), (16, 5), (17, 16), (18, 17),
     (19, 18), (20, 19), (21, 18), (22, 21), (23, 22), (24, 5), (25, 24), (26, 25), (27, 26),
@@ -83,6 +84,6 @@ precedences = [(1, 31), (2, 1), (3, 8), (4, 3), (5, 2), (6, 16), (7, 6), (8, 7),
 # due_dates = [15,2,13]
 # precedences = []
 
-best_schedule, best_tardiness = tabu_search(processing_times, due_dates, precedences, K=1000, L=20, tolerance=10)
+best_schedule, best_tardiness = tabu_search(p, d, precedences, K=1000, L=20, tolerance=10)
 print(f"Best Schedule: {best_schedule}")
 print(f"Best Total Tardiness: {best_tardiness}")
