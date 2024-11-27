@@ -1,14 +1,13 @@
 import random
 import numpy as np
 import networkx as nx
-from WorkflowData import * #import graph library and data
 
 def generate_precedence_graph(precedences):
     graph = nx.DiGraph()
     graph.add_edges_from(precedences)
     return graph
 
-def generate_initial_solution(precedences, num_jobs, f_initial=None):
+def generate_initial_solution(precedences, num_jobs, f_initial):
     if f_initial:
         return f_initial
     
@@ -33,8 +32,6 @@ def compute_tardiness(processing_times, due_dates, schedule):
     )
     return tardiness
 
-# Im not 100% on how this works for the precedences should this not be using the graph?
-# Althougth this does seem to work for the supplied workflow
 def is_schedule_valid(schedule, precedences):
     job_indices = {job: i for i, job in enumerate(schedule)}
     for job1, job2 in precedences:
@@ -42,48 +39,77 @@ def is_schedule_valid(schedule, precedences):
             return False
     return True
 
-def tabu_search(processing_times, due_dates, precedences, K, L, tolerance):
-    curr_schedule = generate_initial_solution(precedences, len(processing_times))
-    best_schedule = curr_schedule
+def tabu_search_enhanced(processing_times, due_dates, precedences, K, L, tolerance, f_initial):
+
+    curr_schedule = generate_initial_solution(precedences, len(processing_times), f_initial)
+    best_schedule = curr_schedule[:]
     best_tardiness = compute_tardiness(processing_times, due_dates, best_schedule)
-    
+
     tabu_list = []
     for _ in range(K):
         neighbors = []
-        for i in range(len(curr_schedule) - 1):
-            neighbor = curr_schedule[:]
-
-            neighbor[i], neighbor[i + 1] = neighbor[i + 1], neighbor[i]
-            if is_schedule_valid(neighbor, precedences) and neighbor not in tabu_list:
-                neighbors.append(neighbor)
         
-        if neighbors:
-            neighbors.sort(key=lambda n: compute_tardiness(processing_times, due_dates, n))
-            best_neighbor = neighbors[0]
-            best_neighbor_tardiness = compute_tardiness(processing_times, due_dates, best_neighbor)
+        for i in range(len(curr_schedule)):
+            for j in range(i + 1, len(curr_schedule)):  
+                neighbor = curr_schedule[:]
+                neighbor[i], neighbor[j] = neighbor[j], neighbor[i]
+                
+                if is_schedule_valid(neighbor, precedences) and neighbor not in tabu_list:
+                    neighbors.append((neighbor, compute_tardiness(processing_times, due_dates, neighbor)))
 
-            if best_neighbor_tardiness - best_tardiness <= tolerance:
+        if neighbors:
+            neighbors.sort(key=lambda x: x[1])
+            best_neighbor, best_neighbor_tardiness = neighbors[0]
+
+            if best_neighbor_tardiness <= best_tardiness - tolerance:
                 best_schedule = best_neighbor
                 best_tardiness = best_neighbor_tardiness
-            
+
             tabu_list.append(best_neighbor)
             if len(tabu_list) > L:
                 tabu_list.pop(0)
+                
             curr_schedule = best_neighbor
-    
+
     return best_schedule, best_tardiness
 
-# I think we should manage a method for converting the supplied adj matrix into this format
-precedences = [(1, 31), (2, 1), (3, 8), (4, 3), (5, 2), (6, 16), (7, 6), (8, 7), (9, 8), (10, 9),
-    (11, 1), (12, 5), (13, 12), (14, 13), (17, 15), (15, 11), (16, 5), (17, 16), (18, 17),
-    (19, 18), (20, 19), (21, 18), (22, 21), (23, 22), (24, 5), (25, 24), (26, 25), (27, 26),
-    (28, 26), (29, 27), (29, 28), (30, 4), (30, 10), (30, 14), (30, 20), (30, 23), (30, 29)]
+processing_times = [3, 10, 2, 2, 5, 2, 14, 5, 6, 5, 5, 2, 3, 3, 5, 6, 6, 6, 2, 3, 2, 3, 14, 5, 18, 10, 2, 3, 6, 2, 10]
+due_dates = [172, 82, 18, 61, 93, 71, 217, 295, 290, 287, 253, 307, 279, 73, 355, 34,
+             233, 77, 88, 122, 71, 181, 340, 141, 209, 217, 256, 144, 307, 329, 269]
+precedences = [(0, 30), (1, 0), (2, 7), (3, 2), (4, 1), (5, 15), (6, 5), (7, 6), (8, 7), (9, 8),
+    (10, 0), (11, 4), (12, 11), (13, 12), (16, 14), (14, 10), (15, 4), (16, 15), (17, 16),
+    (18, 17), (19, 18), (20, 17), (21, 20), (22, 21), (23, 4), (24, 23), (25, 24), (26, 25),
+    (27, 25), (28, 26), (28, 27), (29, 3), (29, 9), (29, 13), (29, 19), (29, 22), (29, 28)]
 
 #problem sheet example 5
 # processing_times = [10, 7, 3]
 # due_dates = [15,2,13]
 # precedences = []
 
-best_schedule, best_tardiness = tabu_search(p, d, precedences, K=1000, L=20, tolerance=10)
+# best_schedule, best_tardiness = tabu_search(processing_times, due_dates, precedences, K=10, L=20, tolerance=10)
+# print(f"Best Schedule: {best_schedule}")
+# print(f"Best Total Tardiness: {best_tardiness}")
+
+initial_solution = [29, 28, 22, 9, 8, 13, 12, 11, 3, 19, 21, 2, 26, 27, 7, 6, 
+                    18, 20, 25, 17, 24, 16, 14, 5, 23, 15, 4, 10, 1, 0, 30]
+
+Ts = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+Ls = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+tolerances = [15, 10, 5, 0]
+
+best_sol = 400
+for tolerance in tolerances:
+    for T in Ts:
+        for L in Ls:
+            best_schedule, best_tardiness = tabu_search_enhanced(processing_times, due_dates, precedences, T, L=L, tolerance=tolerance, f_initial= initial_solution)
+            if best_tardiness < best_sol:
+                best_sol = best_tardiness
+                print("tolerance: ", tolerance)
+                print("T: ", T)
+                print("L: ", L)
+                print(best_sol)
+
+best_schedule, best_tardiness = tabu_search_enhanced(processing_times, due_dates, precedences, 10, L=10, tolerance=0, f_initial=None)
 print(f"Best Schedule: {best_schedule}")
-print(f"Best Total Tardiness: {best_tardiness}")
+print(f"Total Tardiness: {best_tardiness}")
+print("")
