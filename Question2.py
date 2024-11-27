@@ -1,5 +1,4 @@
 import random
-import networkx as nx
 from WorkflowData import *
 from Question1 import *
 import copy
