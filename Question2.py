@@ -102,7 +102,6 @@ class TabuSearch(Graph):
                     if current_cost < best_tardiness:
                         self.best_schedule = curr_schedule[:]
                         best_tardiness = current_cost
-                        #print(f"Iteration {iteration + 1}: Current Cost = {curr_schedule}, Current Solution = {best_tardiness}")
 
                     break
         updated_best_schedule = [x+1 for x in self.best_schedule]     
