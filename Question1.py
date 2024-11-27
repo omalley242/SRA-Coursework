@@ -9,15 +9,24 @@ class LowestCostLast(Graph):
     leaf_nodes: set = set()
     schedule: list = []
 
-    def __init__(self, adj_matrix, due_dates, processing_times):
-        self.workflow_graph = Graph(adj_matrix)
+    def __init__(self, due_dates, processing_times):
+        self.workflow_graph = None
         self.due_dates = due_dates
         self.processing_times = processing_times
+        self.leaf_node = set()
+        self.schedule = []
+        self.total_processing_time = 0
+
+    def add_graph(self, graph):
+        self.workflow_graph = graph
+
+    def add_graph_matrix(self, adj_matrix):
+        self.workflow_graph = Graph()
+        self.workflow_graph.add_matrix_edges(adj_matrix)
+
+    def find_optimum(self):
         self.find_total_processing_time()
         self.find_leaf_nodes()
-
-    #
-    def find_optimum(self):
         while len(self.leaf_nodes) > 0:
             self.iterate_schedule()
             self.find_leaf_nodes()
@@ -44,7 +53,7 @@ class LowestCostLast(Graph):
                 lowest_cost = cost
                 lowest_cost_leaf = leaf_node
 
-        self.schedule.append(lowest_cost_leaf)
+        self.schedule.insert(0, lowest_cost_leaf)
         self.workflow_graph.remove_node(lowest_cost_leaf)
         self.total_processing_time -= self.processing_times[lowest_cost_leaf]
 
@@ -52,5 +61,11 @@ class LowestCostLast(Graph):
         due_date = self.due_dates[node]
         return max(0, self.total_processing_time - due_date)
 
-lowest_cost_last = LowestCostLast(G, d, p)
-lowest_cost_last.find_optimum()
+if __name__ == '__main__':
+    lowest_cost_last = LowestCostLast(d, p)
+    graph = Graph()
+    graph.add_matrix_edges(G)
+    lowest_cost_last.add_graph(graph)
+    lowest_cost_last.find_optimum()
+
+    print([x+1 for x in lowest_cost_last.schedule])

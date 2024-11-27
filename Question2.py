@@ -1,107 +1,125 @@
 import random
 import networkx as nx
+from WorkflowData import *
+from Question1 import *
+import copy
 
-def generate_precedence_graph(precedences):
-    graph = nx.DiGraph()
-    graph.add_edges_from(precedences)
-    return graph
+class TabuSearch(Graph):
 
-def generate_initial_solution(precedences, num_jobs, f_initial):
-    if f_initial:
-        return f_initial
-    
-    if not precedences:
-        return random.shuffle(list(range(1, num_jobs + 1)))
-    
-    graph = generate_precedence_graph(precedences)
-    initial_solution = list(nx.topological_sort(graph))
-    return initial_solution
+    workflow_graph: Graph
+    processing_times: list[int]
+    due_dates: list[int]
+    schedule: list[int]
 
-def valid_interchange(precedences, idx1, idx2):
-    for i, j in precedences:
-        if (i == idx1 and j == idx2) or (i == idx2 and j == idx1):
+    def __init__(self, processing_times, due_dates):
+        self.workflow_graph = None
+        self.due_dates = due_dates
+        self.processing_times = processing_times
+        self.best_schedule = []
+
+    def add_precendences(self, adj_matrix):
+        self.workflow_graph = Graph()
+        self.workflow_graph.add_matrix_edges(adj_matrix)
+
+    def generate_initial_solution(self, num_jobs, f_initial):
+        if f_initial:
+            return f_initial
+        
+        if not self.workflow_graph: #if no precendences are supplied
+            return random.shuffle(list(range(1, num_jobs + 1)))
+        
+        LCL = LowestCostLast(self.due_dates,self.processing_times)
+        graph_copy = Graph()
+        graph_copy.forward_dict = copy.deepcopy(self.workflow_graph.forward_dict)
+        graph_copy.backward_dict = copy.deepcopy(self.workflow_graph.backward_dict)
+        LCL.add_graph(graph_copy)
+        LCL.find_optimum()
+
+        return LCL.schedule
+
+    def valid_interchange(self, idx1, idx2):
+        if ((self.workflow_graph.get_children(idx1) and idx2 in self.workflow_graph.get_children(idx1)) or
+            (self.workflow_graph.get_children(idx2) and idx1 in self.workflow_graph.get_children(idx2))):
             return False
-    return True
+        return True
 
-def compute_tardiness(processing_times, due_dates, schedule):
-    cumulative_time, tardiness_sum = 0, 0
-    
-    for job_index in schedule:
-        cumulative_time += processing_times[job_index]
-        job_tardiness = max(0, cumulative_time - due_dates[job_index])
-        tardiness_sum += job_tardiness
-    return tardiness_sum
+    def compute_tardiness(self, schedule):
+        cumulative_time, tardiness_sum = 0, 0
+        
+        for job_index in schedule:
+            cumulative_time += self.processing_times[job_index]
+            job_tardiness = max(0, cumulative_time - self.due_dates[job_index])
+            tardiness_sum += job_tardiness
 
-def tabu_search(processing_times, due_dates, precedences, K, L, tolerance, f_initial):
-    curr_schedule = generate_initial_solution(precedences, len(processing_times), f_initial)
-    best_schedule = curr_schedule[:]
-    best_tardiness = compute_tardiness(processing_times, due_dates, best_schedule)
+        return tardiness_sum
 
-    tabu_list = []
-    idx = 0
+    def tabu_search(self, K, L, tolerance, f_initial):
+        curr_schedule = self.generate_initial_solution(len(self.processing_times), f_initial)
+        self.best_schedule = curr_schedule[:]
+        best_tardiness = self.compute_tardiness(self.best_schedule)
 
-    for _ in range(K):
-        neighbors = []
-        size = len(curr_schedule)
+        tabu_list = []
+        idx = 0
 
-        for i in range(idx, size-1):
-            if valid_interchange(precedences, curr_schedule[i], curr_schedule[i+1]):
-                neighbor = curr_schedule[:]
-                temp = neighbor[i]
-                neighbor[i] = neighbor[i+1]
-                neighbor[i+1] = temp
+        for _ in range(K):
+            neighbors = []
+            size = len(curr_schedule)
 
-                to_append = (neighbor, (neighbor[i+1], neighbor[i]))
-                neighbors.append(to_append)
-        for i in range(idx):
-            if valid_interchange(precedences, curr_schedule[i], curr_schedule[i+1]):
-                neighbor = curr_schedule[:]
-                temp = neighbor[i]
-                neighbor[i] = neighbor[i+1]
-                neighbor[i+1] = temp
+            for i in range(idx, size-1):
+                if self.valid_interchange(curr_schedule[i], curr_schedule[i+1]):
+                    neighbor = curr_schedule[:]
+                    temp = neighbor[i]
+                    neighbor[i] = neighbor[i+1]
+                    neighbor[i+1] = temp
 
-                to_append = (neighbor, (neighbor[i+1], neighbor[i]))
-                neighbors.append(to_append)
+                    to_append = (neighbor, (neighbor[i+1], neighbor[i]))
+                    neighbors.append(to_append)
+            for i in range(idx):
+                if self.valid_interchange(curr_schedule[i], curr_schedule[i+1]):
+                    neighbor = curr_schedule[:]
+                    temp = neighbor[i]
+                    neighbor[i] = neighbor[i+1]
+                    neighbor[i+1] = temp
 
-        for neighbor, neighbor_change in neighbors:
-            neighbor_cost = compute_tardiness(processing_times, due_dates, neighbor)
+                    to_append = (neighbor, (neighbor[i+1], neighbor[i]))
+                    neighbors.append(to_append)
 
-            if not sorted(neighbor_change) in tabu_list and neighbor_cost - best_tardiness <= tolerance:
-                curr_schedule = neighbor
-                current_cost = neighbor_cost
+            for neighbor, neighbor_change in neighbors:
+                neighbor_cost = self.compute_tardiness(neighbor)
 
-                if len(tabu_list) >= L:
-                    tabu_list.pop()
-                
-                sorted_neighbor_change = sorted(neighbor_change)
-                tabu_list.insert(0, sorted_neighbor_change)
+                if not sorted(neighbor_change) in tabu_list and neighbor_cost - best_tardiness <= tolerance:
+                    curr_schedule = neighbor
+                    current_cost = neighbor_cost
 
-                idx = max(curr_schedule.index(sorted_neighbor_change[0]), curr_schedule.index(sorted_neighbor_change[1]))
+                    if len(tabu_list) >= L:
+                        tabu_list.pop()
+                    
+                    sorted_neighbor_change = sorted(neighbor_change)
+                    tabu_list.insert(0, sorted_neighbor_change)
 
-                if current_cost < best_tardiness:
-                    best_schedule = curr_schedule[:]
-                    best_tardiness = current_cost
-                    #print(f"Iteration {iteration + 1}: Current Cost = {curr_schedule}, Current Solution = {best_tardiness}")
+                    idx = max(curr_schedule.index(sorted_neighbor_change[0]), curr_schedule.index(sorted_neighbor_change[1]))
 
-                break
-    updated_best_schedule = [x+1 for x in best_schedule]     
-    return updated_best_schedule, best_tardiness
+                    if current_cost < best_tardiness:
+                        self.best_schedule = curr_schedule[:]
+                        best_tardiness = current_cost
+                        #print(f"Iteration {iteration + 1}: Current Cost = {curr_schedule}, Current Solution = {best_tardiness}")
 
-processing_times = [3, 10, 2, 2, 5, 2, 14, 5, 6, 5, 5, 2, 3, 3, 5, 6, 6, 6, 2, 3, 2, 3, 14, 5, 18, 10, 2, 3, 6, 2, 10]
-due_dates = [172, 82, 18, 61, 93, 71, 217, 295, 290, 287, 253, 307, 279, 73, 355, 34, 233, 77, 88, 122, 71, 181, 340, 141, 209, 217, 256, 144, 307, 329, 269]
-precedences = [(0, 30), (1, 0), (2, 7), (3, 2), (4, 1), (5, 15), (6, 5), (7, 6), (8, 7), (9, 8),
-    (10, 0), (11, 4), (12, 11), (13, 12), (16, 14), (14, 10), (15, 4), (16, 15), (17, 16),
-    (18, 17), (19, 18), (20, 17), (21, 20), (22, 21), (23, 4), (24, 23), (25, 24), (26, 25),
-    (27, 25), (28, 26), (28, 27), (29, 3), (29, 9), (29, 13), (29, 19), (29, 22), (29, 28)]
+                    break
+        updated_best_schedule = [x+1 for x in self.best_schedule]     
+        return updated_best_schedule, best_tardiness
+
 
 initial_solution = [29, 28, 22, 9, 8, 13, 12, 11, 3, 19, 21, 2, 26, 27, 7, 6, 
                     18, 20, 25, 17, 24, 16, 14, 5, 23, 15, 4, 10, 1, 0, 30]
 
 length = [10, 20, 30]
 gammas = [5, 10, 20, 30]
+
 for l in length:
-    best_schedule, best_tardiness = tabu_search(
-        processing_times, due_dates, precedences, K = 1000, L=l, tolerance=5, f_initial=initial_solution
+    tabu_search_class = TabuSearch(p, d)
+    tabu_search_class.add_precendences(G)
+    best_schedule, best_tardiness = tabu_search_class.tabu_search(
+        K=1000, L=l, tolerance=5, f_initial=None
     )
     print(best_schedule)
     print(best_tardiness)

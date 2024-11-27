@@ -64,7 +64,11 @@ class Graph():
     backward_dict = {}
 
     # take an input adj matrix and convert to inner format
-    def __init__(self, adj_matrix: list[list[any]]):
+    def __init__(self):
+        self.forward_dict = {}
+        self.backward_dict = {}
+
+    def add_matrix_edges(self, adj_matrix):
         for i in range(len(adj_matrix)):
             self.add_node(i)
             for j in range(len(adj_matrix[i])):
@@ -114,6 +118,11 @@ class Graph():
         for parent in pointed_by:
             self.forward_dict[parent].remove(node)
 
+    def get_children(self, node) -> set:
+        return self.forward_dict.get(node)
+    
+    def get_parents(self, node) -> set:
+        return self.backward_dict.get(node)
 
     # method for printing the tree
     def __str__(self):
