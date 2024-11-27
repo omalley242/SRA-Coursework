@@ -43,6 +43,7 @@ def tabu_search(processing_times, due_dates, precedences, K, L, tolerance, f_ini
     for _ in range(K):
         neighbors = []
         size = len(curr_schedule)
+
         for i in range(idx, size-1):
             if valid_interchange(precedences, curr_schedule[i], curr_schedule[i+1]):
                 neighbor = curr_schedule[:]
@@ -80,10 +81,11 @@ def tabu_search(processing_times, due_dates, precedences, K, L, tolerance, f_ini
                 if current_cost < best_tardiness:
                     best_schedule = curr_schedule[:]
                     best_tardiness = current_cost
-                
-                break
+                    #print(f"Iteration {iteration + 1}: Current Cost = {curr_schedule}, Current Solution = {best_tardiness}")
 
-    return best_schedule, best_tardiness
+                break
+    updated_best_schedule = [x+1 for x in best_schedule]     
+    return updated_best_schedule, best_tardiness
 
 processing_times = [3, 10, 2, 2, 5, 2, 14, 5, 6, 5, 5, 2, 3, 3, 5, 6, 6, 6, 2, 3, 2, 3, 14, 5, 18, 10, 2, 3, 6, 2, 10]
 due_dates = [172, 82, 18, 61, 93, 71, 217, 295, 290, 287, 253, 307, 279, 73, 355, 34, 233, 77, 88, 122, 71, 181, 340, 141, 209, 217, 256, 144, 307, 329, 269]
@@ -95,8 +97,11 @@ precedences = [(0, 30), (1, 0), (2, 7), (3, 2), (4, 1), (5, 15), (6, 5), (7, 6),
 initial_solution = [29, 28, 22, 9, 8, 13, 12, 11, 3, 19, 21, 2, 26, 27, 7, 6, 
                     18, 20, 25, 17, 24, 16, 14, 5, 23, 15, 4, 10, 1, 0, 30]
 
-best_schedule, best_tardiness = tabu_search(
-    processing_times, due_dates, precedences, L=20, K=1000, tolerance=5, f_initial=initial_solution
-)
-print(best_schedule)
-print(best_tardiness
+length = [10, 20, 30]
+gammas = [5, 10, 20, 30]
+for l in length:
+    best_schedule, best_tardiness = tabu_search(
+        processing_times, due_dates, precedences, K = 1000, L=l, tolerance=5, f_initial=initial_solution
+    )
+    print(best_schedule)
+    print(best_tardiness)
